@@ -13,12 +13,34 @@ Keyword search, composable filters, and a bilingual (English / فارسی) inter
 Requires **Node.js 20+**. Nothing else — no Docker, no database server.
 
 ```bash
+git clone https://github.com/brainsbalancee/task-.git
+cd task-
 npm install     # installs both workspaces
-npm run ingest  # builds the SQLite database + search index from the CSV
+npm run ingest  # builds the SQLite database + search index
 npm run dev     # API on :4000, UI on :5173
 ```
 
-Then open **http://localhost:5173**.
+Then open **http://localhost:5173**. That is the whole setup — it works on a
+fresh clone with no further steps.
+
+### Using the real dataset
+
+The repository ships `data/sample_profiles.csv`, a **synthetic** dataset of 120
+profiles in the exact same 77-column format, and the ETL falls back to it
+automatically. The dataset supplied with the task is real personal data — names
+and employers, plus emails, phone numbers, street addresses and birth dates in
+columns this app deliberately ignores — so it is not committed to a public
+repository.
+
+To run against the real file, drop it in and re-ingest:
+
+```bash
+cp "300 user linkedin.txt" data/linkedin_profiles.csv
+npm run ingest
+```
+
+The ETL prints which file it used. Everything below describes the real dataset;
+the sample behaves identically, just smaller.
 
 | Command | What it does |
 | --- | --- |
@@ -26,7 +48,8 @@ Then open **http://localhost:5173**.
 | `npm run ingest` | Rebuilds `backend/data/profiles.db` from `data/linkedin_profiles.csv` |
 | `npm run dev` | Runs the API and the UI together |
 | `npm run build` | Type-checks and builds both for production |
-| `npm test` | Runs the backend test suite (41 tests) |
+| `npm test` | Runs the backend test suite (45 tests) |
+| `npm run sample` | Regenerates the synthetic dataset |
 | `npm run es:up` | Starts Elasticsearch (optional — see [Swapping the engine](#swapping-the-search-engine)) |
 
 The frontend calls `/api/*` on its own origin and Vite proxies that to port 4000,
@@ -181,6 +204,16 @@ React + Vite + Tailwind, with Framer Motion for animation.
   `?q=civil+engineer&skill=autocad&country=united+states&sort=experience_desc`
 - **Bilingual** — English/Persian toggle flips `<html dir>`, switches the font
   stack, and renders numbers with Persian digits. State persists across reloads.
+- **Type-ahead** — the search box suggests skills, job titles, companies and
+  people from `GET /api/suggest`; picking a skill applies it as a filter rather
+  than as text, because that is what you meant.
+- **“How was this ranked?”** — an inline panel rendering the `explain` trace:
+  parsed keyword, BM25 field weights, the exact filter predicates, and the SQL.
+- **API console** — the `API` section runs real requests against the backend and
+  shows status, timing and raw JSON, so the endpoint surface can be inspected
+  without leaving the page.
+- **Responsive** — on phones the filter rail becomes a bottom sheet with a
+  dedicated header and an apply button; the result count moves to its own row.
 
 ---
 
@@ -301,8 +334,40 @@ curl "localhost:4000/api/search?q=civil+engineer&skill=autocad&sort=relevance&li
 | --- | --- |
 | `GET /api/profiles/:id` | Full profile — skills, experience, education |
 | `GET /api/facets?field=skills&q=proj&limit=20` | Filter values with counts |
+| `GET /api/suggest?q=engin` | Type-ahead across skills, titles, companies, names |
 | `GET /api/stats` | Dataset totals |
 | `GET /api/health` | Liveness probe |
+| `GET /api` | Self-describing index of the whole surface |
+
+### `?explain=1` — see how a search was executed
+
+Search relevance is the easiest thing in an app like this to get subtly wrong
+and never notice. Adding `explain=1` to any search returns the trace:
+
+```bash
+curl "localhost:4000/api/search?q=civil+engineer&skill=autocad&explain=1&limit=1"
+```
+
+```json
+{
+  "meta": {
+    "explain": {
+      "keyword": { "input": "civil engineer", "parsed": "\"civil\" * AND \"engineer\" *" },
+      "ranking": {
+        "function": "bm25",
+        "weights": [{ "field": "name", "weight": 10 }, { "field": "title", "weight": 8 }]
+      },
+      "filters": [{ "field": "skill", "values": ["autocad"], "predicate": "EXISTS (SELECT 1 FROM profile_skills …)" }],
+      "filterLogic": "Values inside one filter are OR-ed; filters are AND-ed together.",
+      "sort": "m.score DESC, p.connections DESC NULLS LAST, p.id",
+      "query": "WITH m AS (SELECT profile_id, -bm25(profiles_fts, 0, 10, 8, …) …"
+    }
+  }
+}
+```
+
+It is off by default so the endpoint stays lean. The UI opts in, which is what
+powers the **“How was this ranked?”** panel above the results.
 
 ---
 

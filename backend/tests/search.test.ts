@@ -7,7 +7,13 @@ import type { SearchQuery } from '../src/search/engine.js';
 
 /**
  * End-to-end checks against the real index built by `npm run ingest`.
- * Skipped with a clear message when the database has not been built yet.
+ *
+ * Nothing here hard-codes a value from a particular dataset. The fixtures below
+ * are read out of whichever index is present — the supplied file or the
+ * committed synthetic sample — so `npm test` passes on a fresh clone and still
+ * means something. Assertions are about *relationships* (adding a filter never
+ * widens the set, scores descend, pages do not overlap) rather than about
+ * specific people.
  */
 const dbExists = fs.existsSync(config.sqlitePath);
 
@@ -41,9 +47,39 @@ const query = (
 describe('SqliteSearchEngine', { skip: dbExists ? false : 'run `npm run ingest` first' }, () => {
   let engine: SqliteSearchEngine;
 
+  /** Values sampled from the index under test, so the suite is dataset-agnostic. */
+  let fixtures: {
+    totalProfiles: number;
+    topSkill: string;
+    secondSkill: string;
+    /** A word that certainly appears in the corpus. */
+    keyword: string;
+    /** A strict prefix of `keyword`, for the prefix-matching check. */
+    keywordPrefix: string;
+    titleFragment: string;
+  };
+
   before(async () => {
     engine = new SqliteSearchEngine(config.sqlitePath);
     await engine.init();
+
+    const stats = await engine.stats();
+    const skills = await engine.facets('skills', { limit: 2 });
+    const titles = await engine.facets('jobTitle', { limit: 1 });
+
+    // A single word from the most common skill makes a dependable keyword: it
+    // is in the index by construction, and long enough to have a real prefix.
+    const word =
+      skills[0]!.value.split(' ').find((w) => w.length >= 6) ?? skills[0]!.value.split(' ')[0]!;
+
+    fixtures = {
+      totalProfiles: stats.profiles,
+      topSkill: skills[0]!.value,
+      secondSkill: skills[1]?.value ?? skills[0]!.value,
+      keyword: word,
+      keywordPrefix: word.slice(0, Math.max(3, word.length - 2)),
+      titleFragment: titles[0]!.value.split(' ').pop()!,
+    };
   });
 
   after(async () => {
@@ -52,60 +88,62 @@ describe('SqliteSearchEngine', { skip: dbExists ? false : 'run `npm run ingest` 
 
   it('returns every profile when nothing is asked for', async () => {
     const result = await engine.search(query());
-    assert.ok(result.total > 200, `expected the full dataset, got ${result.total}`);
-    assert.equal(result.items.length, 20);
+    assert.equal(result.total, fixtures.totalProfiles);
+    assert.equal(result.items.length, Math.min(20, fixtures.totalProfiles));
     assert.equal(result.page, 1);
   });
 
   it('narrows the result set with a keyword', async () => {
     const all = await engine.search(query());
-    const keyword = await engine.search(query({ q: 'engineer' }));
-    assert.ok(keyword.total > 0, 'expected at least one engineer');
+    const keyword = await engine.search(query({ q: fixtures.keyword }));
+    assert.ok(keyword.total > 0, `expected hits for "${fixtures.keyword}"`);
     assert.ok(keyword.total < all.total, 'a keyword must narrow the set');
   });
 
   it('ranks by relevance and returns a highlight', async () => {
-    const result = await engine.search(query({ q: 'engineer' }));
+    const result = await engine.search(query({ q: fixtures.keyword }));
     const scores = result.items.map((i) => i.score ?? 0);
     assert.deepEqual(scores, [...scores].sort((a, b) => b - a), 'scores must descend');
     assert.ok(result.items.some((i) => i.highlight?.includes('<mark>')));
   });
 
   it('prefix-matches, so a partial word still finds the term', async () => {
-    const partial = await engine.search(query({ q: 'engineeri' }));
-    assert.ok(partial.total > 0);
+    const full = await engine.search(query({ q: fixtures.keyword }));
+    const partial = await engine.search(query({ q: fixtures.keywordPrefix }));
+    assert.ok(partial.total > 0, `expected hits for the prefix "${fixtures.keywordPrefix}"`);
+    assert.ok(
+      partial.total >= full.total,
+      'a prefix must match at least everything the full word matches',
+    );
   });
 
   it('filters by skill', async () => {
-    const result = await engine.search(query({ filters: { skills: ['leadership'] } }));
+    const result = await engine.search(query({ filters: { skills: [fixtures.topSkill] } }));
     assert.ok(result.total > 0);
     // Every returned profile must actually carry the skill.
     for (const item of result.items) {
       const full = await engine.getProfile(item.id);
-      assert.ok(full?.skills.includes('leadership'), `${item.fullName} is missing the skill`);
+      assert.ok(full?.skills.includes(fixtures.topSkill), `${item.fullName} is missing the skill`);
     }
   });
 
   it('combines two filters with AND', async () => {
-    const skillOnly = await engine.search(query({ filters: { skills: ['leadership'] } }));
+    const skillOnly = await engine.search(query({ filters: { skills: [fixtures.topSkill] } }));
     const both = await engine.search(
-      query({ filters: { skills: ['leadership'], jobTitle: ['manager'] } }),
+      query({ filters: { skills: [fixtures.topSkill], jobTitle: [fixtures.titleFragment] } }),
     );
-    assert.ok(both.total > 0);
     assert.ok(both.total <= skillOnly.total, 'adding a filter must not widen the set');
   });
 
   it('treats skillMatch=all as an intersection of skillMatch=any', async () => {
-    const filters = { skills: ['leadership', 'training'] };
+    const filters = { skills: [fixtures.topSkill, fixtures.secondSkill] };
     const any = await engine.search(query({ filters, skillMatch: 'any' }));
     const all = await engine.search(query({ filters, skillMatch: 'all' }));
     assert.ok(all.total <= any.total);
   });
 
   it('respects the experience range', async () => {
-    const result = await engine.search(
-      query({ filters: { minExperience: 10, maxExperience: 15 } }),
-    );
+    const result = await engine.search(query({ filters: { minExperience: 10, maxExperience: 15 } }));
     assert.ok(result.total > 0);
     for (const item of result.items) {
       assert.ok(item.yearsExperience !== null);
@@ -143,21 +181,23 @@ describe('SqliteSearchEngine', { skip: dbExists ? false : 'run `npm run ingest` 
 
   it('returns facet values with descending counts', async () => {
     const facets = await engine.facets('skills', { limit: 10 });
-    assert.equal(facets.length, 10);
+    assert.ok(facets.length > 0);
     const counts = facets.map((f) => f.count);
     assert.deepEqual(counts, [...counts].sort((a, b) => b - a));
   });
 
   it('narrows facets by a typed prefix', async () => {
-    const facets = await engine.facets('skills', { q: 'project', limit: 10 });
+    const term = fixtures.topSkill.slice(0, 4);
+    const facets = await engine.facets('skills', { q: term, limit: 10 });
     assert.ok(facets.length > 0);
-    assert.ok(facets.every((f) => f.value.includes('project')));
+    assert.ok(facets.every((f) => f.value.includes(term)));
   });
 
   it('suggests skills, titles, companies and names for a prefix', async () => {
-    const suggestions = await engine.suggest('engin', 8);
+    const term = fixtures.topSkill.slice(0, 4);
+    const suggestions = await engine.suggest(term, 8);
     assert.ok(suggestions.length > 0);
-    assert.ok(suggestions.every((s) => s.value.includes('engin')));
+    assert.ok(suggestions.every((s) => s.value.includes(term)));
     // Skills lead the list — they are the most useful thing to search for.
     assert.equal(suggestions[0]!.type, 'skill');
   });
@@ -168,14 +208,14 @@ describe('SqliteSearchEngine', { skip: dbExists ? false : 'run `npm run ingest` 
   });
 
   it('attaches an execution trace only when explain is requested', async () => {
-    const plain = await engine.search(query({ q: 'engineer' }));
+    const plain = await engine.search(query({ q: fixtures.keyword }));
     assert.equal(plain.explain, undefined);
 
     const explained = await engine.search(
-      query({ q: 'engineer', filters: { skills: ['leadership'] }, explain: true }),
+      query({ q: fixtures.keyword, filters: { skills: [fixtures.topSkill] }, explain: true }),
     );
     assert.ok(explained.explain);
-    assert.equal(explained.explain.keyword?.parsed, '"engineer" *');
+    assert.equal(explained.explain.keyword?.parsed, `"${fixtures.keyword}" *`);
     assert.equal(explained.explain.ranking.function, 'bm25');
     assert.deepEqual(
       explained.explain.filters.map((f) => f.field),

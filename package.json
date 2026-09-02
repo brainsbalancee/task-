@@ -2,7 +2,7 @@
   "name": "task",
   "version": "1.0.0",
   "private": true,
-  "description": "task — a search engine over a LinkedIn profile dataset (Cyberyan full-stack trial task)",
+  "description": "task \u2014 a search engine over a LinkedIn profile dataset (Cyberyan full-stack trial task)",
   "workspaces": [
     "backend",
     "frontend"
@@ -17,7 +17,8 @@
     "start": "npm run start --workspace backend",
     "test": "npm run test --workspace backend",
     "es:up": "docker compose up -d elasticsearch || docker-compose up -d elasticsearch",
-    "es:down": "docker compose down || docker-compose down"
+    "es:down": "docker compose down || docker-compose down",
+    "sample": "node scripts/make-sample.mjs 120"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
