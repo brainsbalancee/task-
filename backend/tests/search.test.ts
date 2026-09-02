@@ -224,6 +224,16 @@ describe('SqliteSearchEngine', { skip: dbExists ? false : 'run `npm run ingest` 
     assert.match(explained.explain.query, /profiles_fts MATCH/);
   });
 
+  it('never lets a non-name value into a name-shaped field', async () => {
+    // Column drift in the source file can deposit a phone number or a salary
+    // range into `industry`; every one of these fields must contain a letter.
+    for (const field of ['skills', 'jobTitle', 'company', 'industry', 'country'] as const) {
+      const values = await engine.facets(field, { limit: 500 });
+      const junk = values.filter((v) => !/\p{L}/u.test(v.value));
+      assert.deepEqual(junk, [], `${field} contains non-name values: ${JSON.stringify(junk)}`);
+    }
+  });
+
   it('returns the full document for a known id, and null otherwise', async () => {
     const [first] = (await engine.search(query({ limit: 1 }))).items;
     const profile = await engine.getProfile(first!.id);

@@ -57,8 +57,10 @@ function label(value: unknown, maxLength = 120): string | null {
   const s = str(value);
   if (s === null || s.length > maxLength) return null;
   if (s.startsWith('[') || s.startsWith('{') || s.includes("':")) return null;
-  // Pure punctuation/digits: a salary range or an id, not a name.
-  if (/^[\d.,>< /-]+$/.test(s)) return null;
+  // An industry, company, job title or country always contains a letter.
+  // Requiring one rejects every non-name that column drift can deposit here:
+  // phone numbers (`+15805831639`), salary ranges, postal codes, geo pairs, ids.
+  if (!/\p{L}/u.test(s)) return null;
   return s;
 }
 
