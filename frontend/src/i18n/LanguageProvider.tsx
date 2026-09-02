@@ -25,10 +25,20 @@ const I18nContext = createContext<I18nValue | null>(null);
 
 const STORAGE_KEY = 'task.lang';
 
+/**
+ * Resolution order: an explicit `?lang=` in the URL, then the stored choice,
+ * then the browser's own preference. The URL comes first so a link can be
+ * shared in a specific language regardless of the recipient's saved setting.
+ */
 function initialLanguage(): Language {
   if (typeof window === 'undefined') return 'en';
+
+  const requested = new URLSearchParams(window.location.search).get('lang');
+  if (requested === 'en' || requested === 'fa') return requested;
+
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === 'en' || stored === 'fa') return stored;
+
   return navigator.language?.toLowerCase().startsWith('fa') ? 'fa' : 'en';
 }
 

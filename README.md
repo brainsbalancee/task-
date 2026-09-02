@@ -6,6 +6,34 @@ Keyword search, composable filters, and a bilingual (English / فارسی) inter
 > Built for the Cyberyan full-stack trial task.
 > **فارسی:** راهنمای فارسی در انتهای همین فایل آمده است — [پرش به راهنمای فارسی](#راهنمای-فارسی).
 
+
+---
+
+## Screenshots
+
+| | |
+| --- | --- |
+| **Landing page** | **Search — keyword + filters** |
+| <img src="docs/screenshots/01-landing.png" alt="Landing page with live dataset counters" width="100%"> | <img src="docs/screenshots/02-search.png" alt="Search results with the filter rail, BM25 scores and keyword highlights" width="100%"> |
+| Live counters read from `GET /api/stats`. | 64 results in 10 ms. Filter counts, BM25 scores, `<mark>` highlights, clickable skill chips. |
+| **“How was this ranked?”** | **Profile detail** |
+| <img src="docs/screenshots/03-explain.png" alt="Explain panel showing the parsed query, BM25 field weights, filters and SQL" width="100%"> | <img src="docs/screenshots/04-profile.png" alt="Profile drawer with skills, experience timeline and education" width="100%"> |
+| The `?explain=1` trace: parsed keyword, BM25 field weights, each filter predicate, the ORDER BY, and the SQL that ran. | Full document from `GET /api/profiles/:id` — every skill, the experience timeline, education. |
+| **API console** | **Persian / RTL** |
+| <img src="docs/screenshots/05-api.png" alt="In-app API console showing a live request and raw JSON response" width="100%"> | <img src="docs/screenshots/06-persian.png" alt="The same search in Persian with a right-to-left layout" width="100%"> |
+| Real requests against the running backend — status, timing, size, raw JSON. | The whole layout mirrors, numbers render as Persian digits, Latin data stays left-to-right. |
+
+**Mobile**
+
+<p>
+  <img src="docs/screenshots/07-mobile.png" alt="Search results on a phone" width="290">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/08-mobile-filters.png" alt="Filters as a bottom sheet on a phone" width="290">
+</p>
+
+The filter rail becomes a bottom sheet with its own header and an apply button
+carrying the live result count.
+
 ---
 
 ## Quick start
@@ -462,6 +490,25 @@ task/
 
 یک وب‌اپلیکیشن برای جست‌وجو و فیلتر روی دیتاست پروفایل‌های لینکدین.
 جست‌وجوی کلیدواژه‌ای، فیلترهای ترکیب‌شونده و رابط دوزبانه (فارسی / English).
+
+## تصویرها
+
+| | |
+| --- | --- |
+| **صفحهٔ اصلی** | **جست‌وجو با کلیدواژه و فیلتر** |
+| <img src="docs/screenshots/01-landing.png" alt="صفحهٔ اصلی" width="100%"> | <img src="docs/screenshots/02-search.png" alt="نتایج جست‌وجو" width="100%"> |
+| **پنل «این نتایج چطور رتبه‌بندی شدند؟»** | **جزئیات پروفایل** |
+| <img src="docs/screenshots/03-explain.png" alt="پنل توضیح کوئری" width="100%"> | <img src="docs/screenshots/04-profile.png" alt="جزئیات پروفایل" width="100%"> |
+| **کنسول ای‌پی‌آی** | **نسخهٔ فارسی (راست‌به‌چپ)** |
+| <img src="docs/screenshots/05-api.png" alt="کنسول ای‌پی‌آی" width="100%"> | <img src="docs/screenshots/06-persian.png" alt="نسخهٔ فارسی" width="100%"> |
+
+**موبایل** — ریل فیلترها به یک شیت پایین‌رونده با دکمهٔ اعمال و تعداد زندهٔ نتایج تبدیل می‌شود.
+
+<p>
+  <img src="docs/screenshots/07-mobile.png" alt="نتایج روی موبایل" width="290">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/08-mobile-filters.png" alt="فیلترها روی موبایل" width="290">
+</p>
 
 ## اجرا
 
