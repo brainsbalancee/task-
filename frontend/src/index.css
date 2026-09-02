@@ -1,0 +1,133 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Design tokens
+   Latin copy renders in Inter, Persian copy in Vazirmatn. `[dir='rtl']` swaps
+   the stack, so the same components render correctly in both directions.
+--------------------------------------------------------------------------- */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-fa: 'Vazirmatn', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink-950: #05070d;
+  --color-ink-900: #0a0f1c;
+  --color-ink-850: #0e1526;
+  --color-ink-800: #131c31;
+  --color-ink-700: #1d2942;
+  --color-ink-600: #2b3a5c;
+
+  --color-accent-400: #38bdf8;
+  --color-accent-500: #0ea5e9;
+  --color-accent-600: #0284c7;
+  --color-violet-400: #a78bfa;
+  --color-mint-400: #34d399;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink-950 text-slate-200 antialiased;
+    font-family: var(--font-sans);
+    /* Aurora field: three soft radial washes over the near-black base. */
+    background-image:
+      radial-gradient(58rem 40rem at 12% -10%, rgba(14, 165, 233, 0.16), transparent 60%),
+      radial-gradient(46rem 34rem at 90% 4%, rgba(167, 139, 250, 0.14), transparent 60%),
+      radial-gradient(52rem 40rem at 50% 108%, rgba(52, 211, 153, 0.1), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  [dir='rtl'] body {
+    font-family: var(--font-fa);
+  }
+
+  /* Persian digits and text need slightly more line height to breathe. */
+  [dir='rtl'] {
+    line-height: 1.85;
+  }
+
+  ::selection {
+    @apply bg-accent-500/30 text-white;
+  }
+
+  /* Scrollbars, themed to match the surface. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-600) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-ink-600;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-700;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent-400;
+  }
+}
+
+@layer components {
+  /* Frosted panel used by cards, the filter rail and the drawer. */
+  .glass {
+    @apply border border-white/8 bg-white/4 backdrop-blur-xl;
+  }
+
+  .glass-strong {
+    @apply border border-white/10 bg-ink-900/80 backdrop-blur-2xl;
+  }
+
+  /* The `<mark>` tags come from the search engine's snippet output. */
+  .highlight mark {
+    @apply rounded-sm bg-accent-400/25 px-0.5 font-semibold text-accent-400;
+    background-clip: padding-box;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Slow drift for the hero's background orbs. */
+  @keyframes float-slow {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(0, -22px, 0) scale(1.06);
+    }
+  }
+  .animate-float-slow {
+    animation: float-slow 14s ease-in-out infinite;
+  }
+
+  /* Sheen that sweeps across the hero heading. */
+  @keyframes shimmer {
+    0% {
+      background-position: 200% center;
+    }
+    100% {
+      background-position: -200% center;
+    }
+  }
+  .animate-shimmer {
+    background-size: 200% auto;
+    animation: shimmer 6s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float-slow,
+    .animate-shimmer {
+      animation: none;
+    }
+  }
+}

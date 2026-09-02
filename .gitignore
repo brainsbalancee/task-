@@ -1,0 +1,21 @@
+# The supplied dataset is real personal data (names, employers, and in columns
+# this app ignores: emails, phone numbers, addresses, birth dates). It stays
+# local. `data/sample_profiles.csv` is a committed synthetic stand-in, and the
+# ETL falls back to it automatically.
+data/linkedin_profiles.csv
+
+node_modules/
+dist/
+.env
+.env.local
+
+# Built by `npm run ingest` — regenerate it, don't commit it.
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+
+.DS_Store
+*.log
+.vscode/
+.idea/
